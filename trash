@@ -1,0 +1,15 @@
+"""
+def extract_unique_code(text):
+    return text.split()[1] if len(text.split()) > 1 else None
+
+# команда старт
+@dp.message_handler(commands=['start'])
+async def send_welcome(message):
+    par = extract_unique_code(message.text)
+    print(par)
+    await bot.send_message(message.from_user.id, par)
+"""
+
+@dp.message_handler(state=Order.rick_roll)
+async def rick_roll(message: types.Message, state: FSMContext):
+    await bot.send_video(message.chat.id, "https://c.tenor.com/VFFJ8Ei3C2IAAAAM/rickroll-rick.gif", None, "Text")
