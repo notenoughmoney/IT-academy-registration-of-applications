@@ -31,3 +31,9 @@ def getReasonId(array, text):
     for item in array:
         if item[0] == text:
             return item[1]
+
+def getMyRequests(username):
+    r = requests.get("https://req.tucana.org/api/request/my", headers={"telegram": username})
+    temp = json.loads(r.content.decode("utf-8"))
+    toSend = temp
+    return toSend
