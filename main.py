@@ -1,5 +1,4 @@
 import time
-
 import requests
 import io
 from aiogram import Bot, types
@@ -9,6 +8,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 # my imports
+import my_requests
 import utils
 from states import *
 
@@ -26,7 +26,7 @@ HOME = u"\U0001F3E0 Главное меню"
 @dp.message_handler(state=Order.start)
 async def start(message: types.Message):
     # получаем роль пользователя по нику
-    role = utils.getRoleByUsername(message.from_user.username)
+    role = my_requests.getRoleByUsername(message.from_user.username)
     # отправляем пользователя на соответствующую ветку
     if role == 1 or role == 2:
         pass
@@ -41,7 +41,7 @@ async def start(message: types.Message):
 @dp.message_handler(state=Order.waiting_for_purpose)
 async def get_purpose(message: types.Message, state: FSMContext):
     if message.text == "Подать заявку":
-        globalReasons = utils.getGlobalReasons(message.from_user.username)
+        globalReasons = my_requests.getGlobalReasons(message.from_user.username)
         await state.update_data(availableGlobalReasons=globalReasons)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for globalReason in globalReasons:
@@ -70,7 +70,7 @@ async def get_global_reason(message: types.Message, state: FSMContext):
     await state.update_data(globalReason=utils.getReasonId(temp.get("availableGlobalReasons"), message.text))
 
     # предлагаем пользователю выбрать подпричину
-    subReasons = utils.getSubReasons(message.from_user.username, message.text)
+    subReasons = my_requests.getSubReasons(message.from_user.username, message.text)
     await state.update_data(availableSubReasons=subReasons)
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for subReason in subReasons:

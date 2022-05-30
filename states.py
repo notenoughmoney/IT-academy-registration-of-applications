@@ -1,6 +1,5 @@
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-
 class Order(StatesGroup):
     start = State()
     waiting_for_action_user = State()

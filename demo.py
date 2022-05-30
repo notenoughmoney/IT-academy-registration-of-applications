@@ -1,4 +1,4 @@
-import requests
+import my_requests
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.types import message
