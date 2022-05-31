@@ -1,8 +1,11 @@
 import time
 import requests
 import io
+import json
+import math
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils import executor
 from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -38,6 +41,43 @@ async def start(message: types.Message):
         await Order.waiting_for_purpose.set()
 
 
+@dp.callback_query_handler(lambda c: c.data == 'left' or c.data == 'right', state=Order.waiting_for_purpose)
+async def another_page(c: types.CallbackQuery, state: FSMContext):
+    temp = await state.get_data()
+    page = temp.get("page")
+    pages = temp.get("pages")
+    reqs = temp.get("reqs")
+
+    btn_left = None
+    btn_right = None
+    toSend = None
+    if c.data == 'left':
+        await state.update_data(page=page - 1)
+        toSend = utils.form_text(page - 1, pages, reqs)
+        btn_left = InlineKeyboardButton("<", callback_data="left") if (page - 1 > 1) else None
+        btn_right = InlineKeyboardButton(">", callback_data="right") if (page - 1 < pages) else None
+    elif c.data == 'right':
+        await state.update_data(page=page + 1)
+        toSend = utils.form_text(page + 1, pages, reqs)
+        btn_left = InlineKeyboardButton("<", callback_data="left") if (page + 1 > 1) else None
+        btn_right = InlineKeyboardButton(">", callback_data="right") if (page + 1 < pages) else None
+
+    # формируем клавиатуру
+    keyboard = InlineKeyboardMarkup()
+    if btn_left is not None and btn_right is not None:
+        keyboard.row(btn_left, btn_right)
+    elif btn_left is not None:
+        keyboard.row(btn_left)
+    elif btn_right is not None:
+        keyboard.row(btn_right)
+
+    await bot.edit_message_text(toSend,
+                                message_id=c.message.message_id,
+                                inline_message_id=c.message.message_id,
+                                chat_id=c.message.chat.id,
+                                reply_markup=keyboard)
+
+
 @dp.message_handler(state=Order.waiting_for_purpose)
 async def get_purpose(message: types.Message, state: FSMContext):
     if message.text == "Подать заявку":
@@ -49,6 +89,26 @@ async def get_purpose(message: types.Message, state: FSMContext):
         keyboard.add(BACK)
         await message.answer("Что у вас случилось?", reply_markup=keyboard)
         await Order.waiting_for_1st_reason.set()
+    if message.text == "Посмотреть мои заявки":
+        reqs = my_requests.getMyRequests(message.from_user.username)
+
+        length = len(reqs)
+        pages = math.ceil(length / 5)  # округляем в большую сторону
+        page = 1
+
+        # заносим в state данные
+        await state.update_data(page=1)      # о текущей странице
+        await state.update_data(pages=pages) # о количстве страниц
+        await state.update_data(reqs=reqs)   # о заявках
+
+        # формируем клавиатуру
+        keyboard = InlineKeyboardMarkup()
+        btn_right = InlineKeyboardButton(">", callback_data="right") if (page < pages) else None
+        if btn_right is not None:
+            keyboard.row(btn_right)
+
+        toSend = utils.form_text(page, pages, reqs)
+        await message.answer(toSend, reply_markup=keyboard)
 
 
 @dp.message_handler(state=Order.waiting_for_1st_reason)
@@ -178,5 +238,6 @@ async def get_description(message: types.Message, state: FSMContext):
     await Order.start.set()
     await start(message)
     return
+
 
 executor.start_polling(dp)

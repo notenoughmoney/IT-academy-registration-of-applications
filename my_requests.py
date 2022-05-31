@@ -1,10 +1,12 @@
 import requests
 import json
 
+
 def getRoleByUsername(username):
     r = requests.get("https://req.tucana.org/api/auth", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     return temp.get("workgroup").get("role").get("id")
+
 
 def getGlobalReasons(username):
     r = requests.get("https://req.tucana.org/api/reasons", headers={"telegram": username})
@@ -13,6 +15,7 @@ def getGlobalReasons(username):
     for item in temp.get("globalReasons"):
         toSend.append([item.get("name"), item.get("id")])
     return toSend
+
 
 def getSubReasons(username, name):
     r = requests.get("https://req.tucana.org/api/reasons", headers={"telegram": username})
@@ -25,8 +28,12 @@ def getSubReasons(username, name):
             break
     return toSend
 
+
 def getMyRequests(username):
     r = requests.get("https://req.tucana.org/api/request/my", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = temp
+    toSend.reverse()  # отсортировали по времени
+    for index, req in enumerate(toSend, 1):
+        req["tg_id"] = index
     return toSend
