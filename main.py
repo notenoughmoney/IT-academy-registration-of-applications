@@ -47,7 +47,9 @@ async def another_page(c: types.CallbackQuery, state: FSMContext):
     page = temp.get("page")
     pages = temp.get("pages")
     reqs = temp.get("reqs")
+    length = len(reqs)
 
+    btnArray = [None] * 5
     btn_left = None
     btn_right = None
     toSend = None
@@ -56,22 +58,33 @@ async def another_page(c: types.CallbackQuery, state: FSMContext):
         toSend = utils.form_text(page - 1, pages, reqs)
         btn_left = InlineKeyboardButton("<", callback_data="left") if (page - 1 > 1) else None
         btn_right = InlineKeyboardButton(">", callback_data="right") if (page - 1 < pages) else None
+        # сколько заявок доступно на текущей странице
+        onPage = 5 if ((page - 1) * 5 <= length) else length % 5
+        for i in range(onPage):
+            btnArray[i] = InlineKeyboardButton(f"{(page - 2) * 5 + i + 1}", callback_data=f"{i + 1}")
     elif c.data == 'right':
         await state.update_data(page=page + 1)
         toSend = utils.form_text(page + 1, pages, reqs)
         btn_left = InlineKeyboardButton("<", callback_data="left") if (page + 1 > 1) else None
         btn_right = InlineKeyboardButton(">", callback_data="right") if (page + 1 < pages) else None
+        # сколько заявок доступно на текущей странице
+        onPage = 5 if ((page + 1) * 5 <= length) else length % 5
+        for i in range(onPage):
+            btnArray[i] = InlineKeyboardButton(f"{page * 5 + i + 1}", callback_data=f"{i + 1}")
 
     # формируем клавиатуру
     keyboard = InlineKeyboardMarkup()
-    if btn_left is not None and btn_right is not None:
-        keyboard.row(btn_left, btn_right)
-    elif btn_left is not None:
-        keyboard.row(btn_left)
-    elif btn_right is not None:
-        keyboard.row(btn_right)
+    # кнопки назад и вперёд уже сформированы
+    # формириуем массив кнопок, которые отправятсся пользователю
+    buttonsToSend = []
+    # если кнопка равна None, то не заносим её в массив
+    for btn in [btn_left, *btnArray, btn_right]:
+        if btn is not None:
+            buttonsToSend.append(btn)
+    keyboard.row(*buttonsToSend)
 
-    await bot.edit_message_text(toSend,
+
+    await bot.edit_message_text(text=toSend,
                                 message_id=c.message.message_id,
                                 inline_message_id=c.message.message_id,
                                 chat_id=c.message.chat.id,
@@ -97,15 +110,25 @@ async def get_purpose(message: types.Message, state: FSMContext):
         page = 1
 
         # заносим в state данные
-        await state.update_data(page=1)      # о текущей странице
-        await state.update_data(pages=pages) # о количстве страниц
-        await state.update_data(reqs=reqs)   # о заявках
+        await state.update_data(page=1)       # о текущей странице
+        await state.update_data(pages=pages)  # о количстве страниц
+        await state.update_data(reqs=reqs)    # о заявках
 
         # формируем клавиатуру
         keyboard = InlineKeyboardMarkup()
+        # сначала кнопки, привязанные к заявкам
+        btnArray = [0] * 5
+        for i in range(5):
+            btnArray[i] = InlineKeyboardButton(f"{i + 1}", callback_data=f"{i + 1}") if (length >= i + 1) else None
+        # потом кнопку вправо
         btn_right = InlineKeyboardButton(">", callback_data="right") if (page < pages) else None
-        if btn_right is not None:
-            keyboard.row(btn_right)
+        # формириуем массив кнопок, которые отправятсся пользователю
+        buttonsToSend = []
+        # если кнопка равна None, то не заносим её в массив
+        for btn in [*btnArray, btn_right]:
+            if btn is not None:
+                buttonsToSend.append(btn)
+        keyboard.row(*buttonsToSend)
 
         toSend = utils.form_text(page, pages, reqs)
         await message.answer(toSend, reply_markup=keyboard)
