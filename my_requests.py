@@ -37,3 +37,9 @@ def getMyRequests(username):
     for index, req in enumerate(toSend, 1):
         req["tg_id"] = index
     return toSend
+
+def getMyRequest(username, id):
+    r = requests.get(f"https://req.tucana.org/api/request/{id}", headers={"telegram": username})
+    temp = json.loads(r.content.decode("utf-8"))
+    toSend = temp
+    return toSend
