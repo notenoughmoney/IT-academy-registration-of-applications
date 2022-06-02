@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
+from aiogram.types.base import InputFile
+from aiogram import types
 
 def column(matrix, i): return [row[i] for row in matrix]
 
@@ -25,12 +26,18 @@ def getIdByTgId(array, tg_id):
 
 
 def form_text_req(info, tg_id):
-    text = f"ID: {tg_id}\n"
-    text += f"Заявка: {info.get('specific_name')}\n"
-    text += f"Описание: {info.get('messages')[0].get('text')}\n"
-    text += f"Дата: {info.get('date')[0:10]} {info.get('date')[11:16]} \n"
-    text += f"Статус: {info.get('stage').get('name')}\n"
-    return text
+    caption = f"ID: {tg_id}\n"
+    caption += f"Заявка: {info.get('specific_name')}\n"
+    caption += f"Описание: {info.get('messages')[0].get('text')}\n"
+    caption += f"Дата: {info.get('date')[0:10]} {info.get('date')[11:16]} \n"
+    caption += f"Статус: {info.get('stage').get('name')}\n"
+
+    if info.get('messages')[0].get('files'):
+        path = types.InputFile.from_url("http://tucana.org:3100/" + info.get('messages')[0].get('files')[0].get('path'), filename="1.png")
+    else:
+        path = None
+
+    return [caption, path]
 
 
 def form_text_list(page, pages, reqs):

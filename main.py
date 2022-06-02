@@ -71,6 +71,7 @@ async def another_page(c: types.CallbackQuery, state: FSMContext):
     # отвечаем на callback, чтобы часики перестали тикать
     await bot.answer_callback_query(callback_query_id=c.id)
 
+
 @dp.callback_query_handler(lambda c: c.data.startswith('show'), state=Order.waiting_for_purpose)
 async def show_more(c: types.CallbackQuery, state: FSMContext):
     # первое, что нужно знать - мой tg_id
@@ -83,12 +84,14 @@ async def show_more(c: types.CallbackQuery, state: FSMContext):
     # делаем запрос с этим id
     info = my_requests.getMyRequest(c.from_user.username, orig_id)
     # формируем текст сообщения
-    toSend = utils.form_text_req(info, tg_id)
-    # отправляем сообщение
-    await bot.send_message(c.message.chat.id, toSend)
-    await bot.answer_callback_query(callback_query_id=c.id)
+    caption, image = utils.form_text_req(info, tg_id)
 
-    print(info)
+    # отправляем сообщение
+    if image is None:
+        await bot.send_message(c.message.chat.id, caption)
+    else:
+        await bot.send_photo(c.message.chat.id, image, caption)
+    await bot.answer_callback_query(callback_query_id=c.id)
 
 
 @dp.message_handler(state=Order.waiting_for_purpose)

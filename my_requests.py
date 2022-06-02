@@ -1,15 +1,16 @@
 import requests
 import json
 
+url = "http://tucana.org:3100/api/"
 
 def getRoleByUsername(username):
-    r = requests.get("https://req.tucana.org/api/auth", headers={"telegram": username})
+    r = requests.get(f"{url}auth", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     return temp.get("workgroup").get("role").get("id")
 
 
 def getGlobalReasons(username):
-    r = requests.get("https://req.tucana.org/api/reasons", headers={"telegram": username})
+    r = requests.get(f"{url}reasons", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = []
     for item in temp.get("globalReasons"):
@@ -18,7 +19,7 @@ def getGlobalReasons(username):
 
 
 def getSubReasons(username, name):
-    r = requests.get("https://req.tucana.org/api/reasons", headers={"telegram": username})
+    r = requests.get(f"{url}reasons", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = []
     for item in temp.get("globalReasons"):
@@ -30,7 +31,7 @@ def getSubReasons(username, name):
 
 
 def getMyRequests(username):
-    r = requests.get("https://req.tucana.org/api/request/my", headers={"telegram": username})
+    r = requests.get(f"{url}request/my", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = temp
     toSend.reverse()  # отсортировали по времени
@@ -38,8 +39,9 @@ def getMyRequests(username):
         req["tg_id"] = index
     return toSend
 
+
 def getMyRequest(username, id):
-    r = requests.get(f"https://req.tucana.org/api/request/{id}", headers={"telegram": username})
+    r = requests.get(f"{url}request/{id}", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = temp
     return toSend
