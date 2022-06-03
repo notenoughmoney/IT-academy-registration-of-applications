@@ -34,9 +34,9 @@ def getMyRequests(username):
     r = requests.get(f"{url}request/my", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = temp
-    toSend.reverse()  # отсортировали по времени
     for index, req in enumerate(toSend, 1):
         req["tg_id"] = index
+    toSend.reverse()  # отсортировали по времени
     return toSend
 
 

@@ -43,8 +43,8 @@ def form_text_req(info, tg_id):
 def form_text_list(page, pages, reqs):
     text = "Ваши заявки:\n\n"
     text += f"Страница {page} из {pages}\n\n"
-    i = (page - 1) * 5 + 1
-    while i < page * 5 + 1:
+    i = len(reqs) - (page - 1) * 5
+    while i > len(reqs) - page * 5:
         req = getRequestByTgId(reqs, i)
         if req is None:
              break
@@ -53,7 +53,7 @@ def form_text_list(page, pages, reqs):
                     f"Заявка: {req.get('specific_name')}\n" \
                     f"Дата: {req.get('date')[0:10]} {req.get('date')[11:16]} \n" \
                     f"Статус: {req.get('stage').get('name')} \n\n"
-        i += 1
+        i -= 1
     return text
 
 
@@ -65,7 +65,7 @@ def form_keyboard(c, page, pages, length):
     if c is None:
         # сначала кнопки, привязанные к заявкам
         for i in range(5):
-            btnArray[i] = InlineKeyboardButton(f"{i + 1}", callback_data=f"show_{i + 1}") if (length >= i + 1) else None
+            btnArray[i] = InlineKeyboardButton(f"{length - i}", callback_data=f"show_{length - i}") if (length - i > 0) else None
         # потом кнопку вправо
         btn_right = InlineKeyboardButton(">", callback_data="right") if (page < pages) else None
     elif c.data == 'left':
@@ -74,14 +74,14 @@ def form_keyboard(c, page, pages, length):
         # сколько заявок доступно на текущей странице
         onPage = 5 if ((page - 1) * 5 <= length) else length % 5
         for i in range(onPage):
-            btnArray[i] = InlineKeyboardButton(f"{(page - 2) * 5 + i + 1}", callback_data=f"show_{(page - 2) * 5 + i + 1}")
+            btnArray[i] = InlineKeyboardButton(f"{length - (page - 2) * 5 - i}", callback_data=f"show_{length - (page - 2) * 5 - i}")
     elif c.data == 'right':
         btn_left = InlineKeyboardButton("<", callback_data="left") if (page + 1 > 1) else None
         btn_right = InlineKeyboardButton(">", callback_data="right") if (page + 1 < pages) else None
         # сколько заявок доступно на текущей странице
         onPage = 5 if ((page + 1) * 5 <= length) else length % 5
         for i in range(onPage):
-            btnArray[i] = InlineKeyboardButton(f"{page * 5 + i + 1}", callback_data=f"show_{page * 5 + i + 1}")
+            btnArray[i] = InlineKeyboardButton(f"{length - page * 5 - i}", callback_data=f"show_{length - page * 5 - i}")
 
     # формируем клавиатуру
     keyboard = InlineKeyboardMarkup()
