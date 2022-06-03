@@ -31,10 +31,15 @@ async def start(message: types.Message):
     # получаем роль пользователя по нику
     role = my_requests.getRoleByUsername(message.from_user.username)
     # отправляем пользователя на соответствующую ветку
+    # 1 - Администратор
+    # 2 - Специалист
+    # 3 - Пользователь
     if role == 1 or role == 2:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        purposes = ["Подать заявку", "Посмотреть мои заявки"]
-        keyboard.add(*purposes)
+        purposes1 = ["Подать заявку", "Посмотреть мои поданные заявки"]
+        purposes2 = ["Биржа заявок", "Посмотреть мои выполняемые заявки"]
+        keyboard.row(*purposes1)
+        keyboard.row(*purposes2)
         await message.answer("Выберите, что вы хотите сделать?", reply_markup=keyboard)
         await Order.waiting_for_purpose.set()
     elif role == 3:
@@ -44,24 +49,25 @@ async def start(message: types.Message):
         await message.answer("Выберите, что вы хотите сделать?", reply_markup=keyboard)
         await Order.waiting_for_purpose.set()
 
-
+# перелистывание списка заявок
 @dp.callback_query_handler(lambda c: c.data == 'left' or c.data == 'right', state=Order.waiting_for_purpose)
 async def another_page(c: types.CallbackQuery, state: FSMContext):
     temp = await state.get_data()
     page = temp.get("page")
     pages = temp.get("pages")
     reqs = temp.get("reqs")
+    wlist = temp.get("wlist")
     length = len(reqs)
 
     toSend = None
     if c.data == 'left':
         await state.update_data(page=page - 1)
-        toSend = utils.form_text_list(page - 1, pages, reqs)
+        toSend = utils.form_text_list(page - 1, pages, reqs, wlist)
     elif c.data == 'right':
         await state.update_data(page=page + 1)
-        toSend = utils.form_text_list(page + 1, pages, reqs)
+        toSend = utils.form_text_list(page + 1, pages, reqs, wlist)
 
-    keyboard = utils.form_keyboard(c, page, pages, length)
+    keyboard = utils.form_keyboard(page, pages, length, c)
 
     await bot.edit_message_text(text=toSend,
                                 message_id=c.message.message_id,
@@ -71,7 +77,7 @@ async def another_page(c: types.CallbackQuery, state: FSMContext):
     # отвечаем на callback, чтобы часики перестали тикать
     await bot.answer_callback_query(callback_query_id=c.id)
 
-
+# показ конкретной заявки
 @dp.callback_query_handler(lambda c: c.data.startswith('show'), state=Order.waiting_for_purpose)
 async def show_more(c: types.CallbackQuery, state: FSMContext):
     # первое, что нужно знать - мой tg_id
@@ -96,6 +102,14 @@ async def show_more(c: types.CallbackQuery, state: FSMContext):
 
 @dp.message_handler(state=Order.waiting_for_purpose)
 async def get_purpose(message: types.Message, state: FSMContext):
+    # проверка на дурака
+    if message.text not in ["Подать заявку",
+                            "Посмотреть мои поданные заявки", "Посмотреть мои заявки",
+                            "Биржа заявок",
+                            "Посмотреть мои выполняемые заявки"]:
+        await message.answer("Вы можете пользоваться клавиатурой.\nЧто я могу сделать?")
+        return
+    # для норм пользователей
     if message.text == "Подать заявку":
         globalReasons = my_requests.getGlobalReasons(message.from_user.username)
         await state.update_data(availableGlobalReasons=globalReasons)
@@ -105,20 +119,39 @@ async def get_purpose(message: types.Message, state: FSMContext):
         keyboard.add(BACK)
         await message.answer("Что у вас случилось?", reply_markup=keyboard)
         await Order.waiting_for_1st_reason.set()
-    if message.text == "Посмотреть мои заявки":
+    if message.text == "Посмотреть мои заявки" or message.text == "Посмотреть мои поданные заявки":
         reqs = my_requests.getMyRequests(message.from_user.username)
 
         length = len(reqs)
         pages = math.ceil(length / 5)  # округляем в большую сторону
         page = 1
+        wlist = "my"
 
         # заносим в state данные
         await state.update_data(page=1)       # о текущей странице
         await state.update_data(pages=pages)  # о количстве страниц
         await state.update_data(reqs=reqs)    # о заявках
+        await state.update_data(wlist=wlist)  # какой именно список
 
-        keyboard = utils.form_keyboard(None, page, pages, length)
-        toSend = utils.form_text_list(page, pages, reqs)
+        keyboard = utils.form_keyboard(page, pages, length, None)
+        toSend = utils.form_text_list(page, pages, reqs, "my")
+        await message.answer(toSend, reply_markup=keyboard)
+    if message.text == "Биржа заявок":
+        reqs = my_requests.getExchange(message.from_user.username)
+
+        length = len(reqs)
+        pages = math.ceil(length / 5)  # округляем в большую сторону
+        page = 1
+        wlist = "exchange"
+
+        # заносим в state данные
+        await state.update_data(page=1)       # о текущей странице
+        await state.update_data(pages=pages)  # о количестве страниц
+        await state.update_data(reqs=reqs)    # о заявках
+        await state.update_data(wlist=wlist)  # какой именно список
+
+        keyboard = utils.form_keyboard(page, pages, length, None)
+        toSend = utils.form_text_list(page, pages, reqs, "exchange")
         await message.answer(toSend, reply_markup=keyboard)
 
 
@@ -226,14 +259,16 @@ async def get_description(message: types.Message, state: FSMContext):
         return
 
     # всё остальное
-    url = "https://req.tucana.org/api/request"
     headers = {"telegram": message.from_user.username}
 
     # без ключа картинки запрос проходит
     # с ключом, но без картинки запрос тоже проходит
     # description - обязателен - строка
 
-    r = requests.post(url, data={"description": description, "reason": reason}, headers=headers, files=files)
+    r = requests.post(my_requests.url + "request",
+                      data={"description": description, "reason": reason},
+                      headers=headers,
+                      files=files)
 
     if r.ok:
         await message.answer(
@@ -249,6 +284,11 @@ async def get_description(message: types.Message, state: FSMContext):
     await Order.start.set()
     await start(message)
     return
+
+"""""""""""""""""
+ВЕТКА СПЕЦИАЛИСТА
+"""""""""""""""""
+
 
 
 executor.start_polling(dp)

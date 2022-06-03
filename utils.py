@@ -4,20 +4,24 @@ from aiogram import types
 
 def column(matrix, i): return [row[i] for row in matrix]
 
+
 def getReasonId(array, text):
     for item in array:
         if item[0] == text:
             return item[1]
+
 
 def getReasonText(array, id):
     for item in array:
         if item[1] == id:
             return item[0]
 
+
 def getRequestByTgId(array, id):
     for item in array:
         if item["tg_id"] == id:
             return item
+
 
 def getIdByTgId(array, tg_id):
     for item in array:
@@ -25,39 +29,56 @@ def getIdByTgId(array, tg_id):
             return item.get("id")
 
 
+# формирует описание конкретной заявки ДЛЯ ПОЛЬЗОВАТЕЛЯ
 def form_text_req(info, tg_id):
-    caption = f"ID: {tg_id}\n"
-    caption += f"Заявка: {info.get('specific_name')}\n"
-    caption += f"Описание: {info.get('messages')[0].get('text')}\n"
-    caption += f"Дата: {info.get('date')[0:10]} {info.get('date')[11:16]} \n"
+    caption = f"ID: {tg_id}\n\n"
+    caption += f"Заявка: {info.get('specific_name')}\n\n"
+    caption += f"Описание: {info.get('messages')[0].get('text')}\n\n"
+    caption += f"Дата: {info.get('date')[0:10]} {info.get('date')[11:16]} \n\n"
     caption += f"Статус: {info.get('stage').get('name')}\n"
 
     if info.get('messages')[0].get('files'):
         path = types.InputFile.from_url("http://tucana.org:3100/" + info.get('messages')[0].get('files')[0].get('path'), filename="1.png")
     else:
         path = None
-
     return [caption, path]
 
 
-def form_text_list(page, pages, reqs):
-    text = "Ваши заявки:\n\n"
+# формирует список всех заявок, в зависимости от list
+def form_text_list(page, pages, reqs, list):
+    text = None
+    if list == "my":
+        text = "Ваши заявки:\n\n"
+    elif list == "exchange":
+        text = "Биржа заявок\nДля вашего отдела доступны:\n\n"
+    elif list == "todo":
+        text = "Заявки к выполнению:\n\n"
+
     text += f"Страница {page} из {pages}\n\n"
     i = len(reqs) - (page - 1) * 5
+    if len(reqs) == 0:
+        return "Вы пока не подавали заявок"
     while i > len(reqs) - page * 5:
         req = getRequestByTgId(reqs, i)
         if req is None:
              break
         else:
-            text += f"{i}.\n" \
-                    f"Заявка: {req.get('specific_name')}\n" \
-                    f"Дата: {req.get('date')[0:10]} {req.get('date')[11:16]} \n" \
-                    f"Статус: {req.get('stage').get('name')} \n\n"
+            if list == "my":
+                text += f"{i}.\n" \
+                        f"Заявка: {req.get('specific_name')}\n" \
+                        f"Дата подачи: {req.get('date')[0:10]} {req.get('date')[11:16]} \n" \
+                        f"Статус: {req.get('stage').get('name')} \n\n"
+            elif list == "exchange":
+                text += f"{i}.\n" \
+                        f"Заявка: {req.get('request').get('specific_name')}\n" \
+                        f"Дата подачи: {req.get('request').get('date')[0:10]} {req.get('request').get('date')[11:16]} \n" \
+                        f"Статус: {req.get('request').get('stage').get('name')} \n\n"
         i -= 1
     return text
 
 
-def form_keyboard(c, page, pages, length):
+# формирует клавиатуру для списка заявок ДЛЯ ПОЛЬЗОВАТЕЛЯ
+def form_keyboard(page, pages, length, c):
     btnArray = [None] * 5
     btn_left = None
     btn_right = None
