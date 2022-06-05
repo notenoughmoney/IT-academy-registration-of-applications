@@ -68,7 +68,7 @@ def form_text_list(page, pages, reqs, list):
                         f"Заявка: {req.get('specific_name')}\n" \
                         f"Дата подачи: {req.get('date')[0:10]} {req.get('date')[11:16]} \n" \
                         f"Статус: {req.get('stage').get('name')} \n\n"
-            elif list == "exchange":
+            elif list == "exchange" or list == "todo":
                 text += f"{i}.\n" \
                         f"Заявка: {req.get('request').get('specific_name')}\n" \
                         f"Дата подачи: {req.get('request').get('date')[0:10]} {req.get('request').get('date')[11:16]} \n" \
@@ -116,3 +116,31 @@ def form_keyboard(page, pages, length, c):
     keyboard.row(*buttonsToSend)
     return keyboard
 
+
+# формируем Inline-клавиатуру для показанной завки
+def form_req_keyboard(wlist):
+    # есть 5 кнопок
+    # какие убираешь, а какие пользователю отправляешь?
+    btn_approve = None
+    btn_rollback = None
+    btn_appoint = None
+    btn_perform = None
+    btn_refuse = None
+
+    if wlist == "my":
+        btn_approve = InlineKeyboardButton(u"\U00002705 Закрыть", callback_data="111")
+        btn_rollback = InlineKeyboardButton(u"\U0001F519 Откатить", callback_data="111")
+    elif wlist == "exchange":
+        btn_appoint = InlineKeyboardButton(u"\U0001F4E5 Принять", callback_data="111")
+    elif wlist == "todo":
+        btn_perform = InlineKeyboardButton(u"\U0001F44C Отметить выполненной", callback_data="111")
+        btn_refuse = InlineKeyboardButton(u"\U0000274C Отказаться", callback_data="111")
+
+    # формируем клавиатуру
+    keyboard = InlineKeyboardMarkup()
+    buttonsToSend = []
+    # если кнопка равна None, то не заносим её в массив
+    for btn in [btn_approve, btn_rollback, btn_appoint, btn_perform, btn_refuse]:
+        if btn is not None:
+            keyboard.row(btn)
+    return keyboard

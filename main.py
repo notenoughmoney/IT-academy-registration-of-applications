@@ -49,56 +49,6 @@ async def start(message: types.Message):
         await message.answer("Выберите, что вы хотите сделать?", reply_markup=keyboard)
         await Order.waiting_for_purpose.set()
 
-# перелистывание списка заявок
-@dp.callback_query_handler(lambda c: c.data == 'left' or c.data == 'right', state=Order.waiting_for_purpose)
-async def another_page(c: types.CallbackQuery, state: FSMContext):
-    temp = await state.get_data()
-    page = temp.get("page")
-    pages = temp.get("pages")
-    reqs = temp.get("reqs")
-    wlist = temp.get("wlist")
-    length = len(reqs)
-
-    toSend = None
-    if c.data == 'left':
-        await state.update_data(page=page - 1)
-        toSend = utils.form_text_list(page - 1, pages, reqs, wlist)
-    elif c.data == 'right':
-        await state.update_data(page=page + 1)
-        toSend = utils.form_text_list(page + 1, pages, reqs, wlist)
-
-    keyboard = utils.form_keyboard(page, pages, length, c)
-
-    await bot.edit_message_text(text=toSend,
-                                message_id=c.message.message_id,
-                                inline_message_id=c.message.message_id,
-                                chat_id=c.message.chat.id,
-                                reply_markup=keyboard)
-    # отвечаем на callback, чтобы часики перестали тикать
-    await bot.answer_callback_query(callback_query_id=c.id)
-
-# показ конкретной заявки
-@dp.callback_query_handler(lambda c: c.data.startswith('show'), state=Order.waiting_for_purpose)
-async def show_more(c: types.CallbackQuery, state: FSMContext):
-    # первое, что нужно знать - мой tg_id
-    tg_id = c.data.split("_")[1]
-    # получаем все заявки
-    temp = await state.get_data()
-    reqs = temp.get("reqs")
-    # получаем оригинальный id
-    orig_id = utils.getIdByTgId(reqs, tg_id)
-    # делаем запрос с этим id
-    info = my_requests.getMyRequest(c.from_user.username, orig_id)
-    # формируем текст сообщения
-    caption, image = utils.form_text_req(info, tg_id)
-
-    # отправляем сообщение
-    if image is None:
-        await bot.send_message(c.message.chat.id, caption)
-    else:
-        await bot.send_photo(c.message.chat.id, image, caption)
-    await bot.answer_callback_query(callback_query_id=c.id)
-
 
 @dp.message_handler(state=Order.waiting_for_purpose)
 async def get_purpose(message: types.Message, state: FSMContext):
@@ -107,8 +57,9 @@ async def get_purpose(message: types.Message, state: FSMContext):
                             "Посмотреть мои поданные заявки", "Посмотреть мои заявки",
                             "Биржа заявок",
                             "Посмотреть мои выполняемые заявки"]:
-        await message.answer("Вы можете пользоваться клавиатурой.\nЧто я могу сделать?")
+        await message.answer("Пожалуйста, используйте клавиатуру.\nЧто я могу сделать?")
         return
+
     # для норм пользователей
     if message.text == "Подать заявку":
         globalReasons = my_requests.getGlobalReasons(message.from_user.username)
@@ -152,6 +103,23 @@ async def get_purpose(message: types.Message, state: FSMContext):
 
         keyboard = utils.form_keyboard(page, pages, length, None)
         toSend = utils.form_text_list(page, pages, reqs, "exchange")
+        await message.answer(toSend, reply_markup=keyboard)
+    if message.text == "Посмотреть мои выполняемые заявки":
+        reqs = my_requests.getReqsToDo(message.from_user.username)
+
+        length = len(reqs)
+        pages = math.ceil(length / 5)  # округляем в большую сторону
+        page = 1
+        wlist = "todo"
+
+        # заносим в state данные
+        await state.update_data(page=1)       # о текущей странице
+        await state.update_data(pages=pages)  # о количестве страниц
+        await state.update_data(reqs=reqs)    # о заявках
+        await state.update_data(wlist=wlist)  # какой именно список
+
+        keyboard = utils.form_keyboard(page, pages, length, None)
+        toSend = utils.form_text_list(page, pages, reqs, "todo")
         await message.answer(toSend, reply_markup=keyboard)
 
 
@@ -285,10 +253,60 @@ async def get_description(message: types.Message, state: FSMContext):
     await start(message)
     return
 
-"""""""""""""""""
-ВЕТКА СПЕЦИАЛИСТА
-"""""""""""""""""
 
+# обрабатываем прилетающие callback'и
 
+# перелистывание списка заявок
+@dp.callback_query_handler(lambda c: c.data == 'left' or c.data == 'right', state=Order.waiting_for_purpose)
+async def another_page(c: types.CallbackQuery, state: FSMContext):
+    temp = await state.get_data()
+    page = temp.get("page")
+    pages = temp.get("pages")
+    reqs = temp.get("reqs")
+    wlist = temp.get("wlist")
+    length = len(reqs)
+
+    toSend = None
+    if c.data == 'left':
+        await state.update_data(page=page - 1)
+        toSend = utils.form_text_list(page - 1, pages, reqs, wlist)
+    elif c.data == 'right':
+        await state.update_data(page=page + 1)
+        toSend = utils.form_text_list(page + 1, pages, reqs, wlist)
+
+    keyboard = utils.form_keyboard(page, pages, length, c)
+
+    await bot.edit_message_text(text=toSend,
+                                message_id=c.message.message_id,
+                                inline_message_id=c.message.message_id,
+                                chat_id=c.message.chat.id,
+                                reply_markup=keyboard)
+    # отвечаем на callback, чтобы часики перестали тикать
+    await bot.answer_callback_query(callback_query_id=c.id)
+
+# показ конкретной заявки
+@dp.callback_query_handler(lambda c: c.data.startswith('show'), state=Order.waiting_for_purpose)
+async def show_more(c: types.CallbackQuery, state: FSMContext):
+    # первое, что нужно знать - мой tg_id
+    tg_id = c.data.split("_")[1]
+    # получаем инфу с state
+    temp = await state.get_data()
+    reqs = temp.get("reqs")
+    wlist = temp.get("wlist")
+    # получаем оригинальный id
+    orig_id = utils.getIdByTgId(reqs, tg_id)
+    # делаем запрос с этим id
+    info = my_requests.getMyRequest(c.from_user.username, orig_id)
+    # формируем текст сообщения
+    caption, image = utils.form_text_req(info, tg_id)
+    # формируем кнопки
+    keyboard = utils.form_req_keyboard(wlist)
+
+    # отправляем сообщение
+    if image is None:
+        await bot.send_message(c.message.chat.id, caption, reply_markup=keyboard)
+    else:
+        await bot.send_photo(c.message.chat.id, image, caption, reply_markup=keyboard)
+    await bot.answer_callback_query(callback_query_id=c.id)
 
 executor.start_polling(dp)
