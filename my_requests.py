@@ -34,8 +34,8 @@ def getSubReasons(username, name):
     return toSend
 
 
-# получить конкретную завку ПОЛЬЗОВАТЕЛЯ
-def getMyRequest(username, id):
+# получить конкретную завку
+def getRequest(username, id):
     r = requests.get(f"{url}request/{id}", headers={"telegram": username})
     temp = json.loads(r.content.decode("utf-8"))
     toSend = temp
@@ -85,7 +85,27 @@ def getMe(username):
     return toSend
 
 
-# назначить заявку user'у
-def appoint(username, id, user):
-    r = requests.patch(f"{url}request/{id}/appoint", json=user, headers={"telegram": username})
-    print(r.content.decode("utf-8"))
+# 1 - Закрытие заявки пользователем
+def approve(username, id):
+    r = requests.patch(f"{url}request/{id}/approve", headers={"telegram": username})
+    return r
+
+# 2 - Откат заявки пользователем
+def rollback(username, id):
+    r = requests.patch(f"{url}request/{id}/rollback", headers={"telegram": username})
+    return r
+
+# 3 - назначить заявку специалисту
+def appoint(username, id, toUser):
+    r = requests.patch(f"{url}request/{id}/appoint", json=toUser, headers={"telegram": username})
+    return r
+
+# 4 - Выполнение заявки специалистом
+def perform(username, id):
+    r = requests.patch(f"{url}request/{id}/perform", headers={"telegram": username})
+    return r
+
+# 5 - Отказ специалиста от заявки
+def refuse(username, id):
+    r = requests.patch(f"{url}request/{id}/refuse", headers={"telegram": username})
+    return r

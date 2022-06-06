@@ -79,9 +79,9 @@ async def get_purpose(message: types.Message, state: FSMContext):
         wlist = "my"
 
         # заносим в state данные
-        await state.update_data(page=1)       # о текущей странице
+        await state.update_data(page=1)  # о текущей странице
         await state.update_data(pages=pages)  # о количстве страниц
-        await state.update_data(reqs=reqs)    # о заявках
+        await state.update_data(reqs=reqs)  # о заявках
         await state.update_data(wlist=wlist)  # какой именно список
 
         keyboard = utils.form_keyboard(page, pages, length, None)
@@ -96,9 +96,9 @@ async def get_purpose(message: types.Message, state: FSMContext):
         wlist = "exchange"
 
         # заносим в state данные
-        await state.update_data(page=1)       # о текущей странице
+        await state.update_data(page=1)  # о текущей странице
         await state.update_data(pages=pages)  # о количестве страниц
-        await state.update_data(reqs=reqs)    # о заявках
+        await state.update_data(reqs=reqs)  # о заявках
         await state.update_data(wlist=wlist)  # какой именно список
 
         keyboard = utils.form_keyboard(page, pages, length, None)
@@ -113,9 +113,9 @@ async def get_purpose(message: types.Message, state: FSMContext):
         wlist = "todo"
 
         # заносим в state данные
-        await state.update_data(page=1)       # о текущей странице
+        await state.update_data(page=1)  # о текущей странице
         await state.update_data(pages=pages)  # о количестве страниц
-        await state.update_data(reqs=reqs)    # о заявках
+        await state.update_data(reqs=reqs)  # о заявках
         await state.update_data(wlist=wlist)  # какой именно список
 
         keyboard = utils.form_keyboard(page, pages, length, None)
@@ -186,7 +186,7 @@ async def get_sub_reason(message: types.Message, state: FSMContext):
     keyboard.row(BACK, HOME)
     # предлагаем пользователю внести описание проблемы
     await message.answer(
-        "Пожалуйста, опишите свою проблему более детально.\nМожете прикрепить изображение (не обязательно).",
+        "Пожалуйста, опишите свою проблему более детально.\nМожете прикрепить ужатое изображение (не обязательно).",
         reply_markup=keyboard)
     await Order.waiting_for_description.set()
 
@@ -284,10 +284,11 @@ async def another_page(c: types.CallbackQuery, state: FSMContext):
     # отвечаем на callback, чтобы часики перестали тикать
     await bot.answer_callback_query(callback_query_id=c.id)
 
+
 # показ конкретной заявки
 @dp.callback_query_handler(lambda c: c.data.startswith('show'), state=Order.waiting_for_purpose)
 async def show_more(c: types.CallbackQuery, state: FSMContext):
-    # первое, что нужно знать - мой tg_id
+    # первое, что нужно знать - tg_id
     tg_id = c.data.split("_")[1]
     # получаем инфу с state
     temp = await state.get_data()
@@ -296,17 +297,204 @@ async def show_more(c: types.CallbackQuery, state: FSMContext):
     # получаем оригинальный id
     orig_id = utils.getIdByTgId(reqs, tg_id)
     # делаем запрос с этим id
-    info = my_requests.getMyRequest(c.from_user.username, orig_id)
+    info = my_requests.getRequest(c.from_user.username, orig_id)
     # формируем текст сообщения
     caption, image = utils.form_text_req(info, tg_id)
     # формируем кнопки
-    keyboard = utils.form_req_keyboard(wlist)
+    keyboard = utils.form_req_keyboard(wlist, tg_id)
 
     # отправляем сообщение
     if image is None:
         await bot.send_message(c.message.chat.id, caption, reply_markup=keyboard)
     else:
         await bot.send_photo(c.message.chat.id, image, caption, reply_markup=keyboard)
+    await bot.answer_callback_query(callback_query_id=c.id)
+
+
+# 5 обработчиков для callback'ов
+
+# omg im so sorry i have many same functions
+# im so lazy to fix it
+
+@dp.callback_query_handler(lambda c: c.data.startswith('appoint'), state=Order.waiting_for_purpose)
+async def appoint(c: types.CallbackQuery, state: FSMContext):
+    # получаем tg_id заявки, которую хотим принять
+    tg_id = c.data.split("_")[1]
+    # получаем инфу с state для получеия оригинального id
+    temp = await state.get_data()
+    reqs = temp.get("reqs")
+    # получаем оригинальный id
+    orig_id = utils.getIdByTgId(reqs, tg_id)
+    # получаем подробную инфу о пользователе, которому хотим назначить заявку (т.е. себе)
+    toUser = my_requests.getMe(c.from_user.username)
+    # делаем запрос на принятие заявки
+    response = my_requests.appoint(c.from_user.username, orig_id, toUser)
+    # если запрос прошёл успешно, то перерисовываем сообщение
+    if response.ok:
+        # нужно сформировать новый текст сообщения, в котором будет обновлённый статус
+        info = my_requests.getRequest(c.from_user.username, orig_id)
+        caption, image = utils.form_text_req(info, tg_id)
+        # редактируем сообщение
+        if image is None:
+            await bot.edit_message_text(text=caption,
+                                        message_id=c.message.message_id,
+                                        inline_message_id=c.message.message_id,
+                                        chat_id=c.message.chat.id,
+                                        reply_markup=None)
+        else:
+            await bot.edit_message_caption(caption=caption,
+                                           message_id=c.message.message_id,
+                                           inline_message_id=c.message.message_id,
+                                           chat_id=c.message.chat.id,
+                                           reply_markup=None)
+        await bot.send_message(c.message.chat.id, "Заявка перенесена в раздел выполняемых")
+    else:
+        print("???")
+
+    await bot.answer_callback_query(callback_query_id=c.id)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('perform'), state=Order.waiting_for_purpose)
+async def perform(c: types.CallbackQuery, state: FSMContext):
+    # получаем tg_id заявки, которую хотим пометить выполненной
+    tg_id = c.data.split("_")[1]
+    # получаем инфу с state для получеия оригинального id
+    temp = await state.get_data()
+    reqs = temp.get("reqs")
+    # получаем оригинальный id
+    orig_id = utils.getIdByTgId(reqs, tg_id)
+    # делаем запрос на отметку
+    response = my_requests.perform(c.from_user.username, orig_id)
+    # если запрос прошёл успешно, то перерисовываем сообщение
+    if response.ok:
+        # нужно сформировать новый текст сообщения, в котором будет обновлённый статус
+        info = my_requests.getRequest(c.from_user.username, orig_id)
+        caption, image = utils.form_text_req(info, tg_id)
+        # редактируем сообщение
+        if image is None:
+            await bot.edit_message_text(text=caption,
+                                        message_id=c.message.message_id,
+                                        inline_message_id=c.message.message_id,
+                                        chat_id=c.message.chat.id,
+                                        reply_markup=None)
+        else:
+            await bot.edit_message_caption(caption=caption,
+                                           message_id=c.message.message_id,
+                                           inline_message_id=c.message.message_id,
+                                           chat_id=c.message.chat.id,
+                                           reply_markup=None)
+        await bot.send_message(c.message.chat.id, "Заявка помечена выполненной")
+    else:
+        print("???")
+
+    await bot.answer_callback_query(callback_query_id=c.id)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('approve'), state=Order.waiting_for_purpose)
+async def approve(c: types.CallbackQuery, state: FSMContext):
+    # получаем tg_id заявки, которую хотим закрыть
+    tg_id = c.data.split("_")[1]
+    # получаем инфу с state для получеия оригинального id
+    temp = await state.get_data()
+    reqs = temp.get("reqs")
+    # получаем оригинальный id
+    orig_id = utils.getIdByTgId(reqs, tg_id)
+    # делаем запрос на завершение
+    response = my_requests.approve(c.from_user.username, orig_id)
+    # если запрос прошёл успешно, то перерисовываем сообщение
+    if response.ok:
+        # нужно сформировать новый текст сообщения, в котором будет обновлённый статус
+        info = my_requests.getRequest(c.from_user.username, orig_id)
+        caption, image = utils.form_text_req(info, tg_id)
+        # редактируем сообщение
+        if image is None:
+            await bot.edit_message_text(text=caption,
+                                        message_id=c.message.message_id,
+                                        inline_message_id=c.message.message_id,
+                                        chat_id=c.message.chat.id,
+                                        reply_markup=None)
+        else:
+            await bot.edit_message_caption(caption=caption,
+                                           message_id=c.message.message_id,
+                                           inline_message_id=c.message.message_id,
+                                           chat_id=c.message.chat.id,
+                                           reply_markup=None)
+        await bot.send_message(c.message.chat.id, "Заявка успешно закрыта")
+    else:
+        print(response)
+
+    await bot.answer_callback_query(callback_query_id=c.id)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('refuse'), state=Order.waiting_for_purpose)
+async def refuse(c: types.CallbackQuery, state: FSMContext):
+    # получаем tg_id заявки, от которой хотим отказаться
+    tg_id = c.data.split("_")[1]
+    # получаем инфу с state для получеия оригинального id
+    temp = await state.get_data()
+    reqs = temp.get("reqs")
+    # получаем оригинальный id
+    orig_id = utils.getIdByTgId(reqs, tg_id)
+    # делаем запрос на отказ
+    response = my_requests.refuse(c.from_user.username, orig_id)
+    # если запрос прошёл успешно, то перерисовываем сообщение
+    if response.ok:
+        # нужно сформировать новый текст сообщения, в котором будет обновлённый статус
+        info = my_requests.getRequest(c.from_user.username, orig_id)
+        caption, image = utils.form_text_req(info, tg_id)
+        # редактируем сообщение
+        if image is None:
+            await bot.edit_message_text(text=caption,
+                                        message_id=c.message.message_id,
+                                        inline_message_id=c.message.message_id,
+                                        chat_id=c.message.chat.id,
+                                        reply_markup=None)
+        else:
+            await bot.edit_message_caption(caption=caption,
+                                           message_id=c.message.message_id,
+                                           inline_message_id=c.message.message_id,
+                                           chat_id=c.message.chat.id,
+                                           reply_markup=None)
+        await bot.send_message(c.message.chat.id, "Вы отказались от заявки.\nЗаявка перенесена обратно в биржу.")
+    else:
+        print(response)
+
+    await bot.answer_callback_query(callback_query_id=c.id)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('rollback'), state=Order.waiting_for_purpose)
+async def rollback(c: types.CallbackQuery, state: FSMContext):
+    # получаем tg_id заявки, которую хотим откатить
+    tg_id = c.data.split("_")[1]
+    # получаем инфу с state для получеия оригинального id
+    temp = await state.get_data()
+    reqs = temp.get("reqs")
+    # получаем оригинальный id
+    orig_id = utils.getIdByTgId(reqs, tg_id)
+    # делаем запрос на откат
+    response = my_requests.rollback(c.from_user.username, orig_id)
+    # если запрос прошёл успешно, то перерисовываем сообщение
+    if response.ok:
+        # нужно сформировать новый текст сообщения, в котором будет обновлённый статус
+        info = my_requests.getRequest(c.from_user.username, orig_id)
+        caption, image = utils.form_text_req(info, tg_id)
+        # редактируем сообщение
+        if image is None:
+            await bot.edit_message_text(text=caption,
+                                        message_id=c.message.message_id,
+                                        inline_message_id=c.message.message_id,
+                                        chat_id=c.message.chat.id,
+                                        reply_markup=None)
+        else:
+            await bot.edit_message_caption(caption=caption,
+                                           message_id=c.message.message_id,
+                                           inline_message_id=c.message.message_id,
+                                           chat_id=c.message.chat.id,
+                                           reply_markup=None)
+        await bot.send_message(c.message.chat.id, "Вы откатили заявку.")
+    else:
+        print(response)
+
     await bot.answer_callback_query(callback_query_id=c.id)
 
 executor.start_polling(dp)
