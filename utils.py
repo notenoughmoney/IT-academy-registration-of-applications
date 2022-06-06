@@ -123,7 +123,7 @@ def form_keyboard(page, pages, length, c):
 
 
 # формируем Inline-клавиатуру для показанной завки
-def form_req_keyboard(wlist, tg_id):
+def form_req_keyboard(wlist, tg_id, info):
     # есть 5 кнопок
     # какие убираешь, а какие пользователю отправляешь?
     btn_approve = None
@@ -132,14 +132,20 @@ def form_req_keyboard(wlist, tg_id):
     btn_perform = None
     btn_refuse = None
 
+    # получаем stage для того, чтобы определить нужны ли нам некоторые кнопки
+    stage = info.get("stage").get("name")
+
     if wlist == "my":
-        btn_approve = InlineKeyboardButton(u"\U00002705 Закрыть", callback_data=f"approve_{tg_id}")
-        btn_rollback = InlineKeyboardButton(u"\U0001F519 Откатить", callback_data=f"rollback_{tg_id}")
+        if stage == "В завершении":
+            btn_approve = InlineKeyboardButton(u"\U00002705 Закрыть", callback_data=f"approve_{tg_id}")
+            btn_rollback = InlineKeyboardButton(u"\U0001F519 Откатить", callback_data=f"rollback_{tg_id}")
     elif wlist == "exchange":
-        btn_appoint = InlineKeyboardButton(u"\U0001F4E5 Принять", callback_data=f"appoint_{tg_id}")
+        if stage == "В ожидании":
+            btn_appoint = InlineKeyboardButton(u"\U0001F4E5 Принять", callback_data=f"appoint_{tg_id}")
     elif wlist == "todo":
-        btn_perform = InlineKeyboardButton(u"\U0001F44C Выполнено", callback_data=f"perform_{tg_id}")
-        btn_refuse = InlineKeyboardButton(u"\U0000274C Отказаться", callback_data=f"refuse_{tg_id}")
+        if stage == "В процессе":
+            btn_perform = InlineKeyboardButton(u"\U0001F44C Выполнено", callback_data=f"perform_{tg_id}")
+            btn_refuse = InlineKeyboardButton(u"\U0000274C Отказаться", callback_data=f"refuse_{tg_id}")
 
     # формируем клавиатуру
     keyboard = InlineKeyboardMarkup()

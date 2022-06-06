@@ -19,9 +19,14 @@ bot = Bot(token='5017253189:AAHBmdF-jQmQc3IntAcwpDToTZQfSa3wjsE')
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 print("Bot started!")
+programmer = "@zimablue2001"
 
 BACK = u"\U00002B05 Назад"
 HOME = u"\U0001F3E0 Главное меню"
+APPLY = u"\U0001F4DD Подать заявку"
+SHOW_MY = u"\U0001F50D Посмотреть мои поданные заявки"
+EXCHANGE = u"\U0001F3E6 Биржа заявок"
+TODO = u"\U0001F527 Посмотреть мои выполняемые заявки"
 
 
 # домашняя страничка
@@ -36,15 +41,15 @@ async def start(message: types.Message):
     # 3 - Пользователь
     if role == 1 or role == 2:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        purposes1 = ["Подать заявку", "Посмотреть мои поданные заявки"]
-        purposes2 = ["Биржа заявок", "Посмотреть мои выполняемые заявки"]
+        purposes1 = [APPLY, SHOW_MY]
+        purposes2 = [EXCHANGE, TODO]
         keyboard.row(*purposes1)
         keyboard.row(*purposes2)
         await message.answer("Выберите, что вы хотите сделать?", reply_markup=keyboard)
         await Order.waiting_for_purpose.set()
     elif role == 3:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        purposes = ["Подать заявку", "Посмотреть мои заявки"]
+        purposes = [APPLY, SHOW_MY]
         keyboard.add(*purposes)
         await message.answer("Выберите, что вы хотите сделать?", reply_markup=keyboard)
         await Order.waiting_for_purpose.set()
@@ -53,15 +58,12 @@ async def start(message: types.Message):
 @dp.message_handler(state=Order.waiting_for_purpose)
 async def get_purpose(message: types.Message, state: FSMContext):
     # проверка на дурака
-    if message.text not in ["Подать заявку",
-                            "Посмотреть мои поданные заявки", "Посмотреть мои заявки",
-                            "Биржа заявок",
-                            "Посмотреть мои выполняемые заявки"]:
+    if message.text not in [APPLY, SHOW_MY, EXCHANGE, TODO]:
         await message.answer("Пожалуйста, используйте клавиатуру.\nЧто я могу сделать?")
         return
 
     # для норм пользователей
-    if message.text == "Подать заявку":
+    if message.text == APPLY:
         globalReasons = my_requests.getGlobalReasons(message.from_user.username)
         await state.update_data(availableGlobalReasons=globalReasons)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -70,7 +72,7 @@ async def get_purpose(message: types.Message, state: FSMContext):
         keyboard.add(BACK)
         await message.answer("Что у вас случилось?", reply_markup=keyboard)
         await Order.waiting_for_1st_reason.set()
-    if message.text == "Посмотреть мои заявки" or message.text == "Посмотреть мои поданные заявки":
+    if message.text == SHOW_MY:
         reqs = my_requests.getMyRequests(message.from_user.username)
 
         length = len(reqs)
@@ -87,7 +89,7 @@ async def get_purpose(message: types.Message, state: FSMContext):
         keyboard = utils.form_keyboard(page, pages, length, None)
         toSend = utils.form_text_list(page, pages, reqs, "my")
         await message.answer(toSend, reply_markup=keyboard)
-    if message.text == "Биржа заявок":
+    if message.text == EXCHANGE:
         reqs = my_requests.getExchange(message.from_user.username)
 
         length = len(reqs)
@@ -104,7 +106,7 @@ async def get_purpose(message: types.Message, state: FSMContext):
         keyboard = utils.form_keyboard(page, pages, length, None)
         toSend = utils.form_text_list(page, pages, reqs, "exchange")
         await message.answer(toSend, reply_markup=keyboard)
-    if message.text == "Посмотреть мои выполняемые заявки":
+    if message.text == TODO:
         reqs = my_requests.getReqsToDo(message.from_user.username)
 
         length = len(reqs)
@@ -157,7 +159,7 @@ async def get_sub_reason(message: types.Message, state: FSMContext):
     # проверка на назад
     if message.text == BACK:
         await Order.waiting_for_purpose.set()
-        message.text = "Подать заявку"
+        message.text = APPLY
         await get_purpose(message, state)
         return
 
@@ -301,7 +303,7 @@ async def show_more(c: types.CallbackQuery, state: FSMContext):
     # формируем текст сообщения
     caption, image = utils.form_text_req(info, tg_id)
     # формируем кнопки
-    keyboard = utils.form_req_keyboard(wlist, tg_id)
+    keyboard = utils.form_req_keyboard(wlist, tg_id, info)
 
     # отправляем сообщение
     if image is None:
@@ -349,7 +351,8 @@ async def appoint(c: types.CallbackQuery, state: FSMContext):
                                            reply_markup=None)
         await bot.send_message(c.message.chat.id, "Заявка перенесена в раздел выполняемых")
     else:
-        print("???")
+        await bot.send_message(c.message.chat.id, f"Что-то пошло не так.\n"
+                                                  f"Обратитесь за помощью к программисту: {programmer}")
 
     await bot.answer_callback_query(callback_query_id=c.id)
 
@@ -385,7 +388,8 @@ async def perform(c: types.CallbackQuery, state: FSMContext):
                                            reply_markup=None)
         await bot.send_message(c.message.chat.id, "Заявка помечена выполненной")
     else:
-        print("???")
+        await bot.send_message(c.message.chat.id, f"Что-то пошло не так.\n"
+                                                  f"Обратитесь за помощью к программисту: {programmer}")
 
     await bot.answer_callback_query(callback_query_id=c.id)
 
@@ -421,7 +425,8 @@ async def approve(c: types.CallbackQuery, state: FSMContext):
                                            reply_markup=None)
         await bot.send_message(c.message.chat.id, "Заявка успешно закрыта")
     else:
-        print(response)
+        await bot.send_message(c.message.chat.id, f"Что-то пошло не так.\n"
+                                                  f"Обратитесь за помощью к программисту: {programmer}")
 
     await bot.answer_callback_query(callback_query_id=c.id)
 
@@ -457,7 +462,8 @@ async def refuse(c: types.CallbackQuery, state: FSMContext):
                                            reply_markup=None)
         await bot.send_message(c.message.chat.id, "Вы отказались от заявки.\nЗаявка перенесена обратно в биржу.")
     else:
-        print(response)
+        await bot.send_message(c.message.chat.id, f"Что-то пошло не так.\n"
+                                                  f"Обратитесь за помощью к программисту: {programmer}")
 
     await bot.answer_callback_query(callback_query_id=c.id)
 
@@ -493,8 +499,10 @@ async def rollback(c: types.CallbackQuery, state: FSMContext):
                                            reply_markup=None)
         await bot.send_message(c.message.chat.id, "Вы откатили заявку.")
     else:
-        print(response)
+        await bot.send_message(c.message.chat.id, f"Что-то пошло не так.\n"
+                                                  f"Обратитесь за помощью к программисту: {programmer}")
 
     await bot.answer_callback_query(callback_query_id=c.id)
+
 
 executor.start_polling(dp)
